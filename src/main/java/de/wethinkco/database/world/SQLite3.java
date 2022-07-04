@@ -33,6 +33,7 @@ public class SQLite3 implements DatabaseInterface {
             JsonNode tableData,
             String foreignTableName
     ) throws SQLException {
+
         StringBuilder statementBuilder = new StringBuilder();
 
         statementBuilder
@@ -61,7 +62,7 @@ public class SQLite3 implements DatabaseInterface {
             statementBuilder
                     .append(", ")
                     .append(foreignTableName)
-                    .append("_id INTEGER NOT NULL")
+                    .append("_id INTEGER")
                     .append(", ")
                     .append("FOREIGN KEY (")
                     .append(foreignTableName)
@@ -69,7 +70,7 @@ public class SQLite3 implements DatabaseInterface {
                     .append(foreignTableName)
                     .append(" (")
                     .append(foreignTableName)
-                    .append("_id)");
+                    .append("_id) ON UPDATE CASCADE ON DELETE CASCADE");
         }
 
         statementBuilder.append(")");
