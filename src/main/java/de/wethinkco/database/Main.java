@@ -3,26 +3,31 @@ package de.wethinkco.database;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.wethinkco.database.world.JsonWorldData;
+import de.wethinkco.database.world.SQLite3;
 import de.wethinkco.database.world.World;
+import de.wethinkco.database.world.WorldData;
 import de.wethinkco.database.world.WorldObject;
 
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 
 public class Main {
-    public static void main(String[] args) throws JsonProcessingException {
+    public static void main(String[] args) throws JsonProcessingException, SQLException {
         ObjectMapper objectMapper = new ObjectMapper();
 
-        World world = new World(1, 1, 3, 3, 3, 5);
+        WorldData worldData = new WorldData(1, 1, 3, 3, 3, 5);
         WorldObject obstacle = new WorldObject(5, 5, 1, 1);
-        JsonWorldData worldData = new JsonWorldData(world, List.of(obstacle));
+        World world = new World(worldData, List.of(obstacle));
 
-        String jsonString = objectMapper.writeValueAsString(worldData);
+        String jsonString = objectMapper.writeValueAsString(
+                Map.of("world", world)
+        );
         JsonNode jsonNode = objectMapper.readTree(jsonString);
 
         System.out.println(jsonString);
-        for (JsonNode node : jsonNode) {
-            System.out.println(node.getNodeType());
-        }
+
+        SQLite3 sqlite3 = new SQLite3("testdb.db");
+        sqlite3.createDb(jsonNode);
     }
 }
