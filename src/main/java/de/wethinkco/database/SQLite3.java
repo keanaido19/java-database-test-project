@@ -1,7 +1,6 @@
-package de.wethinkco.database.world;
+package de.wethinkco.database;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import de.wethinkco.database.DatabaseInterface;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -18,14 +17,8 @@ public class SQLite3 implements DatabaseInterface {
                 DriverManager.getConnection("jdbc:sqlite:" + dbUrl);
     }
 
-    public void createDb(JsonNode dbData) throws SQLException {
-        for (
-                Iterator<Map.Entry<String, JsonNode>> it = dbData.fields();
-                it.hasNext();
-        ) {
-            Map.Entry<String, JsonNode> jsonNodeMap = it.next();
-            createTable(jsonNodeMap.getKey(), jsonNodeMap.getValue());
-        }
+    public void createDb(DbData dbData) throws SQLException {
+        createTable("reference_" + dbData.reference, dbData.data);
     }
 
     private void createTable(
@@ -87,23 +80,33 @@ public class SQLite3 implements DatabaseInterface {
     private String getColumnStatement(
             String columnName,
             JsonNode columnValue,
-            String tableName
+            String referenceTableName
     ) throws SQLException {
 
         String dataType = "INTEGER";
+
+        String[] referenceTableNameArray =
+                referenceTableName.split("reference_", 2);
+        String tableName =
+                referenceTableNameArray[referenceTableNameArray.length - 1]
+                        + "_";
 
         switch (columnValue.getNodeType()) {
             case NUMBER:
                 break;
             case ARRAY:
                 createTable(
-                        columnName,
+                        tableName + columnName,
                         columnValue.elements().next(),
-                        tableName
+                        referenceTableName
                 );
                 return "";
             case OBJECT:
-                createTable(columnName, columnValue, tableName);
+                createTable(
+                        tableName + columnName,
+                        columnValue,
+                        referenceTableName
+                );
                 return "";
             default:
                 dataType = "TEXT";
