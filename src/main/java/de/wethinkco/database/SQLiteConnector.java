@@ -90,7 +90,7 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
     private ColumnStatement getColumnStatement(
             String columnName,
             JsonNode columnValue,
-            String parentTableName
+            String tableName
     ) throws SQLException {
 
         String dataType = "INTEGER";
@@ -102,19 +102,19 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
                 return getSubTableColumnStatement(
                         columnName,
                         columnValue.elements().next(),
-                        parentTableName
+                        tableName
                 );
             case OBJECT:
                 return getSubTableColumnStatement(
                         columnName,
                         columnValue,
-                        parentTableName
+                        tableName
                 );
             default:
                 dataType = "TEXT";
         }
 
-        return new ColumnStatement(columnName, dataType, false);
+        return new ColumnStatement(columnName, dataType,false);
     }
 
     private List<ColumnStatement> getColumnStatements(
@@ -141,7 +141,7 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
     private void createTable(
             String tableName,
             JsonNode tableData,
-            String foreignTableName
+            String parentTableName
     ) throws SQLException {
 
         Map<String, String> foreignKeys = new HashMap<>();
@@ -159,20 +159,20 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
             if (columnStatement.isForeignKey())
             {
                 foreignKeys.put(
-                        columnStatement.getColumnName(),
+                        "_" + columnStatement.getColumnName(),
                         columnStatement.getForeignTableName()
                 );
             }
         }
 
-        if (null != foreignTableName) {
+        if (null != parentTableName) {
             statementBuilder.append(
                     String.format(
                             ", %s_id INTEGER NOT NULL",
-                            foreignTableName
+                            parentTableName
                     )
             );
-            foreignKeys.put(foreignTableName + "_id", foreignTableName);
+            foreignKeys.put(parentTableName + "_id", parentTableName);
         }
 
         for (Map.Entry<String, String> entry : foreignKeys.entrySet()) {
@@ -195,15 +195,40 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
         );
     }
 
-    @Override
-    public void saveData(DbData dbData) throws Exception {
-        createDb(dbData);
+    private void updateReferenceTable(String reference) throws SQLException {
         Statement statement = dbConnection.createStatement();
         statement.executeUpdate(
                 String.format(
                         "INSERT INTO reference_%s DEFAULT VALUES",
-                        dbData.reference)
+                        reference
+                )
         );
+    }
+
+    private int getReferenceTableLastIndex(String reference)
+            throws SQLException {
+        Statement statement = dbConnection.createStatement();
+        ResultSet result =
+                statement.executeQuery(
+                        MessageFormat.format(
+                                "SELECT * FROM reference_{0} WHERE " +
+                                        "reference_{0}_id = (" +
+                                        "SELECT MAX(reference_{0}_id) FROM " +
+                                        "reference_{0})",
+                                reference
+                        )
+                );
+        return result.getInt("reference_" + reference + "_id");
+    }
+
+    @Override
+    public void saveData(DbData dbData) throws Exception {
+        createDb(dbData);
+
+        String reference = dbData.reference;
+
+        updateReferenceTable(reference);
+        System.out.println(getReferenceTableLastIndex(reference));
     }
 
     public void lol() throws SQLException {

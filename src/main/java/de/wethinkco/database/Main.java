@@ -20,8 +20,6 @@ public class Main {
         JsonNode jsonNode = objectMapper.readTree("{\"objectData\":{\"size\":5,\"position\":{\"x\":0,\"y\":1}}}");
         DbData dbData = new DbData("world", jsonNode);
 
-        System.out.println(jsonString);
-
         SQLiteConnector sqliteConnector = new SQLiteConnector("testdb.db");
         sqliteConnector.saveData(dbData);
 //        sqliteConnector.lol();

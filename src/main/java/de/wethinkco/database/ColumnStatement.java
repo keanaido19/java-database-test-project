@@ -40,6 +40,6 @@ public class ColumnStatement {
 
     public String getStatement() {
         if (null == columnName) return "";
-        return ", " + columnName + " " + dataType + " NOT NULL";
+        return ", _" + columnName + " " + dataType + " NOT NULL";
     }
 }
