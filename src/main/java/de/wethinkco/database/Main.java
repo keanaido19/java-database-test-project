@@ -1,17 +1,15 @@
 package de.wethinkco.database;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.wethinkco.database.world.World;
 import de.wethinkco.database.world.WorldData;
 import de.wethinkco.database.world.WorldObject;
 
-import java.sql.SQLException;
 import java.util.List;
 
 public class Main {
-    public static void main(String[] args) throws JsonProcessingException, SQLException {
+    public static void main(String[] args) throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
 
         WorldData worldData = new WorldData(1, 1, 3, 3, 3, 5);
@@ -26,5 +24,6 @@ public class Main {
 
         SQLiteConnector sqliteConnector = new SQLiteConnector("testdb.db");
         sqliteConnector.saveData(dbData);
+//        sqliteConnector.lol();
     }
 }

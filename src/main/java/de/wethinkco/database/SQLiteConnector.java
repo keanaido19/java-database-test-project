@@ -2,14 +2,9 @@ package de.wethinkco.database;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Pattern;
 
 public class SQLiteConnector implements DatabaseConnectorInterface {
@@ -20,29 +15,24 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
                 DriverManager.getConnection("jdbc:sqlite:" + dbUrl);
     }
 
-    @Override
-    public void saveData(DbData dbData) {
-        try {
-            createDb(dbData);
-        } catch (SQLException e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void createDb(DbData dbData) throws SQLException {
-        createTable(
-                "reference_" + dbData.reference,
-                dbData.data,
-                null
-        );
-    }
-
     private String getTableCreationStatement(String tableName) {
         return MessageFormat.format(
                 "CREATE TABLE IF NOT EXISTS \"{0}\" " +
                         "({0}_id INTEGER PRIMARY KEY AUTOINCREMENT",
                 tableName
+        );
+    }
+
+    private String getForeignKeyReference(
+            String columnName,
+            String foreignTableName
+    ) {
+        return MessageFormat.format(
+                ", FOREIGN KEY ({0}) " +
+                        "REFERENCES {1} ({1}_id) " +
+                        "ON UPDATE CASCADE ON DELETE CASCADE",
+                columnName,
+                foreignTableName
         );
     }
 
@@ -74,9 +64,8 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
             JsonNode tableData,
             String parentTableName
     ) throws SQLException {
-        String subTableName = getTableReference(parentTableName) + columnName;
         String foreignTableName = null;
-        String tempColumnName = subTableName;
+        String tempColumnName = columnName;
 
         boolean isForeignKey = true;
 
@@ -86,15 +75,14 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
             isForeignKey = false;
         }
 
-        createTable(
-                subTableName,
-                tableData,
-                foreignTableName
-        );
+        String subTableName = getTableReference(parentTableName) + columnName;
+
+        createTable(subTableName, tableData, foreignTableName);
 
         return new ColumnStatement(
                 tempColumnName,
                 "INTEGER",
+                subTableName,
                 isForeignKey
         );
     }
@@ -129,32 +117,52 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
         return new ColumnStatement(columnName, dataType, false);
     }
 
+    private List<ColumnStatement> getColumnStatements(
+            JsonNode tableData,
+            String tableName
+    ) throws SQLException {
+        List<ColumnStatement> returnList = new ArrayList<>();
+        for (
+                Iterator<Map.Entry<String, JsonNode>> it = tableData.fields();
+                it.hasNext();
+        ) {
+            Map.Entry<String, JsonNode> jsonNodeMap = it.next();
+            returnList.add(
+                    getColumnStatement(
+                            jsonNodeMap.getKey(),
+                            jsonNodeMap.getValue(),
+                            tableName
+                    )
+            );
+        }
+        return returnList;
+    }
+
     private void createTable(
             String tableName,
             JsonNode tableData,
             String foreignTableName
     ) throws SQLException {
 
-        ArrayList<String> foreignKeys = new ArrayList<>();
+        Map<String, String> foreignKeys = new HashMap<>();
 
         StringBuilder statementBuilder = new StringBuilder();
 
         statementBuilder.append(getTableCreationStatement(tableName));
 
         for (
-                Iterator<Map.Entry<String, JsonNode>> it = tableData.fields();
-                it.hasNext();
+                ColumnStatement columnStatement :
+                getColumnStatements(tableData, tableName)
         ) {
-            Map.Entry<String, JsonNode> jsonNodeMap = it.next();
-            ColumnStatement columnStatement =
-                    getColumnStatement(
-                            jsonNodeMap.getKey(),
-                            jsonNodeMap.getValue(),
-                            tableName
-                    );
             statementBuilder.append(columnStatement.getStatement());
+
             if (columnStatement.isForeignKey())
-                foreignKeys.add(columnStatement.getForeignTableName());
+            {
+                foreignKeys.put(
+                        columnStatement.getColumnName(),
+                        columnStatement.getForeignTableName()
+                );
+            }
         }
 
         if (null != foreignTableName) {
@@ -164,16 +172,46 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
                             foreignTableName
                     )
             );
-            foreignKeys.add(foreignTableName);
+            foreignKeys.put(foreignTableName + "_id", foreignTableName);
         }
 
-        for (String foreignKey : foreignKeys) {
-            statementBuilder.append(getForeignKeyReference(foreignKey));
+        for (Map.Entry<String, String> entry : foreignKeys.entrySet()) {
+            statementBuilder.append(
+                    getForeignKeyReference(entry.getKey(), entry.getValue())
+            );
         }
 
         statementBuilder.append(")");
         System.out.println(statementBuilder);
         Statement statement = dbConnection.createStatement();
         statement.executeUpdate(statementBuilder.toString());
+    }
+
+    private void createDb(DbData dbData) throws SQLException {
+        createTable(
+                "reference_" + dbData.reference,
+                dbData.data,
+                null
+        );
+    }
+
+    @Override
+    public void saveData(DbData dbData) throws Exception {
+        createDb(dbData);
+        Statement statement = dbConnection.createStatement();
+        statement.executeUpdate(
+                String.format(
+                        "INSERT INTO reference_%s DEFAULT VALUES",
+                        dbData.reference)
+        );
+    }
+
+    public void lol() throws SQLException {
+        Statement statement = dbConnection.createStatement();
+        statement.execute("SELECT * FROM sqlite_master WHERE type='table'");
+        ResultSet resultSet = statement.getResultSet();
+        while (resultSet.next()) {
+            System.out.println(resultSet.getString("name"));
+        }
     }
 }
