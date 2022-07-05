@@ -15,9 +15,10 @@ public class Main {
         WorldData worldData = new WorldData(1, 1, 3, 3, 3, 5);
         WorldObject obstacle = new WorldObject(5, 5, 1, 1);
         World world = new World(worldData, List.of(obstacle));
-//        {"objectData":{"size":5,"position":{"x":0,"y":1}}}
+//        {"objectData":{"size":5,"position":{"x":0,"y":1}},"size":5}
         String jsonString = objectMapper.writeValueAsString(world);
-        JsonNode jsonNode = objectMapper.readTree("{\"objectData\":{\"size\":5,\"position\":{\"x\":0,\"y\":1}}}");
+        JsonNode jsonNode =
+                objectMapper.readTree("{\"objectData\":{\"size\":5,\"position\":{\"x\":0,\"y\":1}},\"size\":5}");
         DbData dbData = new DbData("world", jsonNode);
 
         SQLiteConnector sqliteConnector = new SQLiteConnector("testdb.db");

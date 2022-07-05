@@ -1,6 +1,7 @@
 package de.wethinkco.database;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.sql.*;
 import java.text.MessageFormat;
@@ -46,6 +47,7 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
     }
 
     private boolean checkIsReferenceTable(String tableName) {
+        if (null == tableName) return false;
         Pattern pattern = Pattern.compile("^reference_.*$");
         return pattern.matcher(tableName).find();
     }
@@ -195,40 +197,85 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
         );
     }
 
-    private void updateReferenceTable(String reference) throws SQLException {
-        Statement statement = dbConnection.createStatement();
-        statement.executeUpdate(
-                String.format(
-                        "INSERT INTO reference_%s DEFAULT VALUES",
-                        reference
-                )
-        );
-    }
-
-    private int getReferenceTableLastIndex(String reference)
+    private int getTableLastIndex(String tableName)
             throws SQLException {
         Statement statement = dbConnection.createStatement();
         ResultSet result =
                 statement.executeQuery(
                         MessageFormat.format(
-                                "SELECT * FROM reference_{0} WHERE " +
-                                        "reference_{0}_id = (" +
-                                        "SELECT MAX(reference_{0}_id) FROM " +
-                                        "reference_{0})",
-                                reference
+                                "SELECT * FROM {0} WHERE {0}_id = " +
+                                        "(SELECT MAX({0}_id) FROM {0})",
+                                tableName
                         )
                 );
-        return result.getInt("reference_" + reference + "_id");
+        if (result.isClosed()) return 0;
+        return result.getInt(tableName + "_id");
+    }
+
+    private int saveData(
+            String tableName,
+            JsonNode tableData,
+            String parentTableName,
+            int parentTableIndex
+    ) throws SQLException {
+        Statement statement = dbConnection.createStatement();
+
+        int insertIndex = getTableLastIndex(tableName) + 1;
+
+        StringBuilder columns = new StringBuilder();
+        StringBuilder values = new StringBuilder();
+
+        columns.append(tableName).append("_id");
+        values.append(insertIndex);
+
+        if (checkIsReferenceTable(parentTableName)) {
+            columns.append(", ").append(parentTableName).append("_id");
+            values.append(", ").append(parentTableIndex);
+        }
+
+        String tableReference = getTableReference(tableName);
+
+        for (
+                Iterator<Map.Entry<String, JsonNode>> it = tableData.fields();
+                it.hasNext();
+        ) {
+            Map.Entry<String, JsonNode> jsonNodeMap = it.next();
+            String key = jsonNodeMap.getKey();
+            Object value = jsonNodeMap.getValue();
+            switch (jsonNodeMap.getValue().getNodeType()) {
+                case OBJECT:
+                case ARRAY:
+                    value = saveData(
+                            tableReference + key,
+                            jsonNodeMap.getValue(),
+                            tableName,
+                            insertIndex
+                    );
+                    if (checkIsReferenceTable(tableName)) break;
+                default:
+                    columns.append(", _").append(key);
+                    values.append(", ").append(value);
+            }
+        }
+
+        String sqlStatement = MessageFormat.format(
+                "INSERT INTO {0}({1}) VALUES({2})",
+                tableName,
+                columns,
+                values
+        );
+
+        System.out.println(sqlStatement);
+        statement.executeUpdate(sqlStatement);
+
+        return insertIndex;
     }
 
     @Override
     public void saveData(DbData dbData) throws Exception {
         createDb(dbData);
-
-        String reference = dbData.reference;
-
-        updateReferenceTable(reference);
-        System.out.println(getReferenceTableLastIndex(reference));
+        String referenceTableName = "reference_" + dbData.reference;
+        saveData(referenceTableName, dbData.data, null, 0);
     }
 
     public void lol() throws SQLException {
