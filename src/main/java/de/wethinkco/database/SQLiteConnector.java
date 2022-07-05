@@ -241,17 +241,33 @@ public class SQLiteConnector implements DatabaseConnectorInterface {
         ) {
             Map.Entry<String, JsonNode> jsonNodeMap = it.next();
             String key = jsonNodeMap.getKey();
-            Object value = jsonNodeMap.getValue();
-            switch (jsonNodeMap.getValue().getNodeType()) {
+            JsonNode value = jsonNodeMap.getValue();
+            switch (value.getNodeType()) {
                 case OBJECT:
-                case ARRAY:
-                    value = saveData(
+                    int index = saveData(
                             tableReference + key,
-                            jsonNodeMap.getValue(),
+                            value,
                             tableName,
                             insertIndex
                     );
                     if (checkIsReferenceTable(tableName)) break;
+                    columns.append(", _").append(key);
+                    values.append(", ").append(index);
+                    break;
+                case ARRAY:
+                    for (
+                            Iterator<JsonNode> iter = value.elements();
+                            iter.hasNext();
+                            ) {
+                        JsonNode node = iter.next();
+                        saveData(
+                                tableReference + key,
+                                node,
+                                tableName,
+                                insertIndex
+                        );
+                    }
+                    break;
                 default:
                     columns.append(", _").append(key);
                     values.append(", ").append(value);

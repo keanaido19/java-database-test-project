@@ -14,11 +14,13 @@ public class Main {
 
         WorldData worldData = new WorldData(1, 1, 3, 3, 3, 5);
         WorldObject obstacle = new WorldObject(5, 5, 1, 1);
-        World world = new World(worldData, List.of(obstacle));
+        World world = new World(worldData, List.of(obstacle, obstacle,
+                obstacle, obstacle, new WorldObject(1, 1, 23, 55)));
 //        {"objectData":{"size":5,"position":{"x":0,"y":1}},"size":5}
         String jsonString = objectMapper.writeValueAsString(world);
-        JsonNode jsonNode =
-                objectMapper.readTree("{\"objectData\":{\"size\":5,\"position\":{\"x\":0,\"y\":1}},\"size\":5}");
+//        JsonNode jsonNode =
+//                objectMapper.readTree("{\"objectData\":{\"size\":5,\"position\":{\"x\":0,\"y\":1}},\"size\":5}");
+        JsonNode jsonNode = objectMapper.readTree(jsonString);
         DbData dbData = new DbData("world", jsonNode);
 
         SQLiteConnector sqliteConnector = new SQLiteConnector("testdb.db");
